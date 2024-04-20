@@ -3,9 +3,14 @@
     <PropertyGroup>
         <OutputType>Exe</OutputType>
         <TargetFramework>net8.0</TargetFramework>
-        <RootNamespace>vut_ipk_project_2</RootNamespace>
+        <RootNamespace>zeta</RootNamespace>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="PacketDotNet" Version="1.4.8-pre18" />
+      <PackageReference Include="SharpPcap" Version="6.3.0" />
+    </ItemGroup>
 
 </Project>
