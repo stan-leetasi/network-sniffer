@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "vut-ipk-project-2", "vut-ipk-project-2\vut-ipk-project-2.csproj", "{82FA01B8-6CCD-4B1F-B8ED-1DF6806E1F51}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "vut-ipk-project-2", "sniffer\sniffer.csproj", "{82FA01B8-6CCD-4B1F-B8ED-1DF6806E1F51}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
