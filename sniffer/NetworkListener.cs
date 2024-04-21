@@ -29,7 +29,7 @@ public class NetworkListener {
     /// <summary>
     /// Device which captures received packets
     /// </summary>
-    private ILiveDevice? Listener;
+    private ICaptureDevice? _listener;
     
         public int StartListener(CaptureDeviceList devices, ArgParser argParserInstance)
         {
@@ -40,38 +40,38 @@ public class NetworkListener {
                 return 1;
             }
             
-            Listener = devices.FirstOrDefault(d => d.Name == argParserInstance.Interface);
-            if (Listener == null)
+            _listener = devices.FirstOrDefault(d => d.Name == argParserInstance.Interface);
+            if (_listener == null)
             {
                 Console.Error.WriteLine("ERR: Invalid device name");
                 return 1;
             }
             
             // Register handler function to the 'packet arrival' event
-            Listener.OnPacketArrival += device_OnPacketArrival;
+            _listener.OnPacketArrival += device_OnPacketArrival;
             
-            Listener.Open(DeviceModes.Promiscuous); // Open the device for capturing
+            _listener.Open(DeviceModes.Promiscuous); // Open the device for capturing
             
             string filter = ConstructFilter(argParserInstance); // Apply filter
             Console.WriteLine(filter);
             if (!string.IsNullOrEmpty(filter))
-                Listener.Filter = filter; 
+                _listener.Filter = filter; 
    
             Running = true;
             _packetLimit = argParserInstance.PacketCountDisplay;
             
             Console.WriteLine();
-            Console.WriteLine($"Listening on {Listener.Name}, press Ctrl+C to stop");
+            Console.WriteLine($"Listening on {_listener.Name}, press Ctrl+C to stop");
 
             // Start the capturing process
-            Listener.StartCapture();
+            _listener.StartCapture();
 
             return 0;
         }
 
         public void StopListener()
         {
-            Listener?.StopCapture();
+            _listener?.StopCapture();
             Running = false;
         }
 
@@ -86,12 +86,13 @@ public class NetworkListener {
             var time = e.GetPacket().Timeval.Date;
             var len = e.GetPacket().Data.Length;
             var ethPacket = packet.Extract<EthernetPacket>();
-
-            // Extract IP information
             var ipPacket = packet.Extract<IPPacket>();
 
             var srcIp = ipPacket?.SourceAddress;
             var dstIp = ipPacket?.DestinationAddress;
+            var srcMac = ethPacket?.SourceHardwareAddress;
+            var dstMac = ethPacket?.DestinationHardwareAddress;
+            
             var srcPort = ipPacket?.PayloadPacket?.GetType().Name switch
             {
                 "UdpPacket" => (ipPacket.PayloadPacket as UdpPacket)?.SourcePort,
@@ -107,13 +108,19 @@ public class NetworkListener {
 
             // Print the packet information
             Console.WriteLine($"timestamp: {time}");
-            Console.WriteLine($"src MAC: {ethPacket?.SourceHardwareAddress}");
-            Console.WriteLine($"dst MAC: {ethPacket?.DestinationHardwareAddress}");
+            if (srcMac != null)
+                Console.WriteLine($"src MAC: {srcMac}");
+            if(dstMac != null)
+                Console.WriteLine($"dst MAC: {dstMac}");
             Console.WriteLine($"frame length: {len} bytes");
-            Console.WriteLine($"src IP: {srcIp}");
-            Console.WriteLine($"dst IP: {dstIp}");
-            Console.WriteLine($"src port: {srcPort}");
-            Console.WriteLine($"dst port: {dstPort}");
+            if(srcIp != null)
+                Console.WriteLine($"src IP: {srcIp}");
+            if(dstIp != null)
+                Console.WriteLine($"dst IP: {dstIp}");
+            if(srcPort != null)
+                Console.WriteLine($"src port: {srcPort}");
+            if(dstPort != null)
+                Console.WriteLine($"dst port: {dstPort}");
             Console.WriteLine();
             
             // Print the packet data
