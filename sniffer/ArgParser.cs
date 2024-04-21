@@ -1,6 +1,6 @@
-using System;
-
 namespace zeta;
+
+using System;
 using System.Linq;
 
 /// <summary>
@@ -21,7 +21,7 @@ public class ArgParser
     /// <summary>
     /// UDP protocol
     /// </summary>
-    public bool Udp { get; set; } = true;
+    public bool Udp { get; set; } = false;
     
     /// <summary>
     /// Server port for source or destination
@@ -173,6 +173,15 @@ public class ArgParser
                     Console.Error.WriteLine($"ERR: Unknown argument: {args[i]}");
                     return 1;
             }
+        }
+
+        if (Port != 0)
+        {
+            if (PortSource != 0)
+                PortSource = Port;
+
+            if (PortDestination != 0)
+                PortDestination = Port;
         }
 
         if (args.Length == 0 || Interface == "")
