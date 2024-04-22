@@ -55,7 +55,7 @@ public class NetworkListener {
             }
             
             // Register handler function to the 'packet arrival' event
-            _listener.OnPacketArrival += device_OnPacketArrival;
+            _listener.OnPacketArrival += OnPacketArrival;
             
             _listener.Open(DeviceModes.Promiscuous); // Open the device for capturing
             
@@ -89,7 +89,7 @@ public class NetworkListener {
         /// </summary>
         /// <param name="sender">Object that raised the event.</param>
         /// <param name="e">The captured packet.</param>
-        private static void device_OnPacketArrival(object sender, PacketCapture e)
+        private static void OnPacketArrival(object sender, PacketCapture e)
         {
             if (!Running) return;
             
@@ -189,6 +189,10 @@ public class NetworkListener {
             _displayedPackets++;
         }
 
+        /// <summary>
+        /// Extracts the type of the received packet.
+        /// <returns>String representing the packet type.</returns>
+        /// </summary>
         private static string GetPacketType(IPPacket? ipPacket, IcmpV6Packet? icmp6Packet)
         {
             if (icmp6Packet == null && ipPacket != null)
