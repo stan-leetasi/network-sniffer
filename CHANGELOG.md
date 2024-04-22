@@ -8,6 +8,17 @@ All notable changes to this project will be documented in this file.
 #### Known limitations
 
 
+## [1.0.0] - 2024-04-21
+
+### Added
+
+- More types of packets to PacketSender
+
+### Changed
+
+- Fixed errors in NetworkListener
+
+
 ## [0.6.0] - 2024-04-21
 
 ### Changed

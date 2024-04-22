@@ -103,6 +103,7 @@ public class NetworkListener {
             var arpPacket = packet.Extract<ArpPacket>();
 
             var icmp4Packet = packet.Extract<IcmpV4Packet>();
+            var icmp6Packet = packet.Extract<IcmpV6Packet>();
             
             System.Net.IPAddress? srcIp = null;
             System.Net.IPAddress? dstIp = null;
@@ -115,7 +116,7 @@ public class NetworkListener {
             
             var icmp4Type = icmp4Packet?.TypeCode;
             
-            if (arpPacket != null)
+            if (arpPacket != null) // Extract arp packet data
             {
                 srcIp = arpPacket.SenderProtocolAddress;
                 dstIp = arpPacket.TargetProtocolAddress;
@@ -126,7 +127,7 @@ public class NetworkListener {
                 srcMacStr = FormatMac(srcMac);
                 dstMacStr = FormatMac(dstMac);
             }
-            else
+            else // Extract data for packet type other than arp
             {
                 srcIp = ipPacket?.SourceAddress;
                 dstIp = ipPacket?.DestinationAddress;
@@ -137,6 +138,7 @@ public class NetworkListener {
                 dstMacStr = FormatMac(dstMac);
             }
             
+            // Extract ports if the packet is udp or tcp
             var srcPort = ipPacket?.PayloadPacket?.GetType().Name switch
             {
                 "UdpPacket" => (ipPacket.PayloadPacket as UdpPacket)?.SourcePort,
@@ -149,6 +151,8 @@ public class NetworkListener {
                 "TcpPacket" => (ipPacket.PayloadPacket as TcpPacket)?.DestinationPort,
                 _ => null
             };
+
+            string packetType = GetPacketType(ipPacket, icmp6Packet);
 
             // Print the packet information
             Console.WriteLine($"timestamp: {time}");
@@ -166,7 +170,7 @@ public class NetworkListener {
             if(dstPort != null)
                 Console.WriteLine($"dst port: {dstPort}");
             if(ipPacket?.Protocol != null)
-                Console.WriteLine($"type: {ipPacket?.Protocol}");
+                Console.WriteLine($"type: {packetType}");
             if(arpOperation != null)
                 Console.WriteLine($"arp operation: {arpOperation}");
             if(icmp4Type != null)
@@ -183,6 +187,32 @@ public class NetworkListener {
             }
 
             _displayedPackets++;
+        }
+
+        private static string GetPacketType(IPPacket? ipPacket, IcmpV6Packet? icmp6Packet)
+        {
+            if (icmp6Packet == null && ipPacket != null)
+                return ($"{ipPacket?.Protocol}");
+            if (icmp6Packet != null)
+            {
+                switch (icmp6Packet.Type)
+                {
+                    case IcmpV6Type.RouterAdvertisement:
+                    case IcmpV6Type.RouterSolicitation:
+                    case IcmpV6Type.NeighborAdvertisement:
+                    case IcmpV6Type.NeighborSolicitation:
+                        return"NDP";
+                    
+                    case IcmpV6Type.MulticastListenerQuery:
+                    case IcmpV6Type.MulticastListenerReport:
+                    case IcmpV6Type.MulticastListenerDone:
+                        return "MLD";
+                    default:
+                        return "ICMPv6";
+                }
+            }
+
+            return "";
         }
         
         /// <summary>
