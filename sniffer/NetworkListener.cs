@@ -94,10 +94,11 @@ public class NetworkListener {
             if (!Running) return;
             
             var packet = Packet.ParsePacket(e.GetPacket().LinkLayerType, e.GetPacket().Data);
+            var packetEth = Packet.ParsePacket(LinkLayers.Ethernet, e.GetPacket().Data);
             var time = e.GetPacket().Timeval.Date;
             var len = e.GetPacket().Data.Length;
 
-            var ethPacket = packet.Extract<EthernetPacket>();
+            var ethPacket = packetEth.Extract<EthernetPacket>();
             var ipPacket = packet.Extract<IPPacket>();
             var arpPacket = packet.Extract<ArpPacket>();
 
@@ -164,6 +165,8 @@ public class NetworkListener {
                 Console.WriteLine($"src port: {srcPort}");
             if(dstPort != null)
                 Console.WriteLine($"dst port: {dstPort}");
+            if(ipPacket?.Protocol != null)
+                Console.WriteLine($"type: {ipPacket?.Protocol}");
             if(arpOperation != null)
                 Console.WriteLine($"arp operation: {arpOperation}");
             if(icmp4Type != null)
