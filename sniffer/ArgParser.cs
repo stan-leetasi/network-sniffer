@@ -175,15 +175,6 @@ public class ArgParser
             }
         }
 
-        if (Port != 0)
-        {
-            if (PortSource != 0)
-                PortSource = Port;
-
-            if (PortDestination != 0)
-                PortDestination = Port;
-        }
-
         if (args.Length == 0 || Interface == "")
             ShowInterfaces = true;
 

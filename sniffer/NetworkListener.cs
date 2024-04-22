@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Net.NetworkInformation;
 
 namespace zeta;
 
@@ -31,6 +32,12 @@ public class NetworkListener {
     /// </summary>
     private ICaptureDevice? _listener;
     
+        /// <summary>
+        /// Starts the network listener with options parsed from CLI arguments.
+        /// </summary>
+        /// <param name="devices">List of available interfaces.</param>
+        /// <param name="argParserInstance">Contains CLI argument values.</param>
+        /// <returns>Integer representing the sniffer startup process success/failure.</returns>
         public int StartListener(CaptureDeviceList devices, ArgParser argParserInstance)
         {
             // If no devices were found print an error
@@ -52,8 +59,7 @@ public class NetworkListener {
             
             _listener.Open(DeviceModes.Promiscuous); // Open the device for capturing
             
-            string filter = ConstructFilter(argParserInstance); // Apply filter
-            Console.WriteLine(filter);
+            string filter = ConstructFilter(argParserInstance); // Apply filter if not empty
             if (!string.IsNullOrEmpty(filter))
                 _listener.Filter = filter; 
    
@@ -69,15 +75,20 @@ public class NetworkListener {
             return 0;
         }
 
+        /// <summary>
+        /// Stops the listener
+        /// </summary>
         public void StopListener()
         {
             _listener?.StopCapture();
             Running = false;
         }
-
+        
         /// <summary>
-        /// Prints received packets on stdout
+        /// Prints received packets on stdout.
         /// </summary>
+        /// <param name="sender">Object that raised the event.</param>
+        /// <param name="e">The captured packet.</param>
         private static void device_OnPacketArrival(object sender, PacketCapture e)
         {
             if (!Running) return;
@@ -85,13 +96,45 @@ public class NetworkListener {
             var packet = Packet.ParsePacket(e.GetPacket().LinkLayerType, e.GetPacket().Data);
             var time = e.GetPacket().Timeval.Date;
             var len = e.GetPacket().Data.Length;
+
             var ethPacket = packet.Extract<EthernetPacket>();
             var ipPacket = packet.Extract<IPPacket>();
+            var arpPacket = packet.Extract<ArpPacket>();
 
-            var srcIp = ipPacket?.SourceAddress;
-            var dstIp = ipPacket?.DestinationAddress;
-            var srcMac = ethPacket?.SourceHardwareAddress;
-            var dstMac = ethPacket?.DestinationHardwareAddress;
+            var icmp4Packet = packet.Extract<IcmpV4Packet>();
+            
+            System.Net.IPAddress? srcIp = null;
+            System.Net.IPAddress? dstIp = null;
+            PhysicalAddress? srcMac = null;
+            PhysicalAddress? dstMac = null;
+            ArpOperation? arpOperation = null;
+
+            string? srcMacStr = "";
+            string? dstMacStr = "";
+            
+            var icmp4Type = icmp4Packet?.TypeCode;
+            
+            if (arpPacket != null)
+            {
+                srcIp = arpPacket.SenderProtocolAddress;
+                dstIp = arpPacket.TargetProtocolAddress;
+                srcMac = arpPacket.SenderHardwareAddress;
+                dstMac = arpPacket.TargetHardwareAddress;
+                arpOperation = arpPacket.Operation;
+
+                srcMacStr = FormatMac(srcMac);
+                dstMacStr = FormatMac(dstMac);
+            }
+            else
+            {
+                srcIp = ipPacket?.SourceAddress;
+                dstIp = ipPacket?.DestinationAddress;
+                srcMac = ethPacket?.SourceHardwareAddress;
+                dstMac = ethPacket?.DestinationHardwareAddress;
+                
+                srcMacStr = FormatMac(srcMac);
+                dstMacStr = FormatMac(dstMac);
+            }
             
             var srcPort = ipPacket?.PayloadPacket?.GetType().Name switch
             {
@@ -109,9 +152,9 @@ public class NetworkListener {
             // Print the packet information
             Console.WriteLine($"timestamp: {time}");
             if (srcMac != null)
-                Console.WriteLine($"src MAC: {srcMac}");
+                Console.WriteLine($"src MAC: {srcMacStr}");
             if(dstMac != null)
-                Console.WriteLine($"dst MAC: {dstMac}");
+                Console.WriteLine($"dst MAC: {dstMacStr}");
             Console.WriteLine($"frame length: {len} bytes");
             if(srcIp != null)
                 Console.WriteLine($"src IP: {srcIp}");
@@ -121,6 +164,11 @@ public class NetworkListener {
                 Console.WriteLine($"src port: {srcPort}");
             if(dstPort != null)
                 Console.WriteLine($"dst port: {dstPort}");
+            if(arpOperation != null)
+                Console.WriteLine($"arp operation: {arpOperation}");
+            if(icmp4Type != null)
+                Console.WriteLine($"ICMPv4 type: {icmp4Type}");
+            
             Console.WriteLine();
             
             // Print the packet data
@@ -133,7 +181,38 @@ public class NetworkListener {
 
             _displayedPackets++;
         }
+        
+        /// <summary>
+        /// Formats the mac address, if not correctly formatted.
+        /// </summary>
+        /// <param name="macAddress">Mac address object.</param>
+        /// <returns>Formatted mac address string.</returns>
+        private static string FormatMac(PhysicalAddress? macAddress)
+        {
+            if (macAddress == null)
+                return "";
 
+            string macStr = macAddress.ToString();
+
+            if (macStr.Contains(":"))
+                return macStr;
+            
+            macStr = string.Format("{0}:{1}:{2}:{3}:{4}:{5}",
+                macStr.Substring(0, 2),
+                macStr.Substring(2, 2),
+                macStr.Substring(4, 2),
+                macStr.Substring(6, 2),
+                macStr.Substring(8, 2),
+                macStr.Substring(10, 2));
+
+            return macStr;
+        }
+
+        /// <summary>
+        /// Formats and prints the data from a packet to stdout.
+        /// </summary>
+        /// <param name="packetData">Data from the packet in a byte[] format.</param>
+        /// <param name="packetLength">Length of the packet.</param>
         private static void PrintData(byte[] packetData, int packetLength)
         {
             for (int i = 0; i < packetLength; i += 16)
@@ -167,95 +246,115 @@ public class NetworkListener {
         }
 
         /// <summary>
-        /// Constructs a filter according to tpcdump's filter syntax
+        /// Constructs a filter according to tpcdump's filter syntax.
+        /// <returns>String representing the constructed filter.</returns>
         /// </summary>
         private string ConstructFilter(ArgParser argParser)
         {
             string ports = "";
             string protocols = "";
+
+            if (argParser.Port != 0)
+            {
+                // If only -p is specified, packets from port source OR destination will be captured
+                if (argParser.PortSource == 0 && argParser.PortDestination == 0)
+                {
+                    ports += $"src port {argParser.Port} or dst port {argParser.Port} ";
+                }
+                else // -p will overwrite empty port source or port destination values
+                {
+                    if (argParser.PortSource == 0)
+                        argParser.PortSource = argParser.Port;
+
+                    if (argParser.PortDestination == 0)
+                        argParser.PortDestination = argParser.Port;
+                }
+            }
             
             if (argParser.PortSource != 0)
             {
-                if (string.IsNullOrEmpty(ports))
-                    ports += $"src port {argParser.PortSource} ";
+                ports += $"src port {argParser.PortSource} ";
             }
 
             if (argParser.PortDestination != 0)
             {
-                if (string.IsNullOrEmpty(ports))
-                    ports += $"dst port {argParser.PortSource} ";
-                else
-                    ports += $"and dst port {argParser.PortSource} ";
+                if (! string.IsNullOrEmpty(ports))
+                    ports += "and ";
+                
+                ports += $"dst port {argParser.PortDestination} ";
             }
             
             if (argParser.Tcp)
             {
-                if (string.IsNullOrEmpty(protocols))
-                    protocols += "tcp ";
+                protocols += "tcp ";
             }
 
             if (argParser.Udp)
             {
-                if (string.IsNullOrEmpty(protocols))
-                    protocols += "udp ";
-                else
-                    protocols += "or udp ";
+                if (! string.IsNullOrEmpty(protocols))
+                    protocols += "or ";
+                
+                protocols += "udp ";
             }
 
             if (argParser.Icmp4)
             {
-                if (string.IsNullOrEmpty(protocols))
-                    protocols += "icmp ";
-                else
-                    protocols += "or icmp ";
+                if (! string.IsNullOrEmpty(protocols))
+                    protocols += "or ";
+                
+                protocols += "icmp ";
             }
 
             if (argParser.Icmp6)
             {
-                if (string.IsNullOrEmpty(protocols))
-                    protocols += "icmp6 ";
-                else
-                    protocols += "or icmp6 ";
+                if (!string.IsNullOrEmpty(protocols))
+                    protocols += "or ";
+                
+                protocols += "icmp6 ";
             }
 
             if (argParser.Arp)
             {
-                if (string.IsNullOrEmpty(protocols))
-                    protocols += "arp ";
-                else
-                    protocols += "or arp ";
+                if (!string.IsNullOrEmpty(protocols))
+                    protocols += "or ";
+                
+                protocols += "arp ";
             }
 
             if (argParser.Ndp)
             {
-                if (string.IsNullOrEmpty(protocols))
-                    protocols += "ndp ";
-                else
-                    protocols += "or ndp ";
+                if (!string.IsNullOrEmpty(protocols))
+                    protocols += "or ";
+
+                protocols += "icmp6 and (icmp6[0] == 133 or icmp6[0] == 135 or icmp6[0] == 136) ";
             }
 
             if (argParser.Igmp)
             {
-                if (string.IsNullOrEmpty(protocols))
-                    protocols += "igmp ";
-                else
-                    protocols += "or igmp ";
+                if (!string.IsNullOrEmpty(protocols))
+                    protocols += "or ";
+                
+                protocols += "igmp ";
             }
 
             if (argParser.Mld)
             {
-                if (string.IsNullOrEmpty(protocols))
-                    protocols += "mld ";
-                else
-                    protocols += "or mld ";
+                if (!string.IsNullOrEmpty(protocols))
+                    protocols += "or ";
+                
+                protocols += "icmp6 and (icmp6[0] == 130 or icmp6[0] == 131) ";
             }
 
-            if (string.IsNullOrEmpty(ports)) // No port was specified
+            if (string.IsNullOrEmpty(ports))// No port was specified
+            {
+                protocols = protocols.Trim();
                 return protocols;
-            
+            }
+
             if (!string.IsNullOrEmpty(protocols)) // Ports and protocols were specified
                 ports += "and " + protocols;
 
+            ports = ports.Trim();
             return ports;
         }
     }

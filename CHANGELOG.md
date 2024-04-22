@@ -8,8 +8,14 @@ All notable changes to this project will be documented in this file.
 #### Known limitations
 
 
+## [0.6.0] - 2024-04-21
 
-## [0.4.0] - 2024-04-21
+### Changed
+
+- Fixed errors in NetworkListener filter constructor and packet processor
+
+
+## [0.5.0] - 2024-04-21
 
 ### Changed
 
