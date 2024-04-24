@@ -32,6 +32,16 @@ Building of the ipk-sniffer is done with the `make` command, since a `Makefile` 
 
 For testing purposes, i created a simple program `PacketSender`, which also utilizes the SharpPcap and PacketDotNet libraries to create and send packets of all types required by the project assignment. The packet type to send is chosen by user input (keys 0-7). Then the received packet can be inspected in ipk-sniffer.
 
+#### Testing scenarios
+- read a TCP packet
+- read a UDP packet
+- read a Icmpv4 packet
+- read a Ndp(NeighbourSolicitation) packet (subset of Icmpv6)
+- read a Ndp(RouterSolicitation) packet (subset of Icmpv6)
+- read a Mld packet (subset of Icmpv6)
+- read an Arp packet
+- read an Igmp packet
+
 
 #### Class diagram {#class-diagram}
 All the boolean fields representing sniffer filter options in the ArgParser class are included under the `filterOptions`
