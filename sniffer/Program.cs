@@ -51,7 +51,6 @@ public static class Sniffer {
         
         if (ArgParserInstance.ShowInterfaces) // Print available interfaces
         {
-            var nonEmptyDevices = devices.Where(dev => !string.IsNullOrWhiteSpace(dev.Description)).ToList();
             if (devices.Count < 1)
             {
                 Console.Error.WriteLine("ERR: No interfaces found!");
@@ -62,9 +61,9 @@ public static class Sniffer {
             Console.WriteLine("----------------------------------------");
 
             // Print out the available interfaces
-            for (int i = 0; i < nonEmptyDevices.Count; i++)
+            for (int i = 0; i < devices.Count; i++)
             {
-                ICaptureDevice dev = nonEmptyDevices[i];
+                ICaptureDevice dev = devices[i];
                 Console.WriteLine($"{dev.Name} - {dev.Description}");
             }
 

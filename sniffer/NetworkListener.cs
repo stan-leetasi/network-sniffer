@@ -363,7 +363,7 @@ public class NetworkListener {
                 if (!string.IsNullOrEmpty(protocols))
                     protocols += "or ";
 
-                protocols += "icmp6 and (icmp6[0] == 133 or icmp6[0] == 135 or icmp6[0] == 136) ";
+                protocols += "(icmp6 and (icmp6[0] == 133 or icmp6[0] == 134 or icmp6[0] == 135 or icmp6[0] == 136 or icmp6[0] == 137)) ";
             }
 
             if (argParser.Igmp)
@@ -379,7 +379,7 @@ public class NetworkListener {
                 if (!string.IsNullOrEmpty(protocols))
                     protocols += "or ";
                 
-                protocols += "icmp6 and (icmp6[0] == 130 or icmp6[0] == 131) ";
+                protocols += "(icmp6 and (icmp6[0] == 130 or icmp6[0] == 131 or icmp6[0] == 132 or icmp6[0] == 143)) ";
             }
 
             if (string.IsNullOrEmpty(ports))// No port was specified
