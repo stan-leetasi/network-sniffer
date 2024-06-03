@@ -46,13 +46,3 @@ For testing purposes, i created a simple program `PacketSender`, which also util
 #### Class diagram {#class-diagram}
 All the boolean fields representing sniffer filter options in the ArgParser class are included under the `filterOptions`
 ![class-diagram](doc/ClassDiagram.jpg)
-
-
-## Bibliography
-
-1. dotpcap. "SharpPcap." GitHub [online]. [cit. 2024-04-22]. Available at: [https://github.com/dotpcap/sharppcap](https://github.com/dotpcap/sharppcap).
-
-2. dotpcap. "PacketNet." GitHub [online]. [cit. 2024-04-22]. Available at: [https://github.com/dotpcap/packetnet](https://github.com/dotpcap/packetnet).
-
-3. WinPcap. "WinPcap Developer's Pack Documentation." WinPcap [online]. [cit. 2024-04-22]. Available at: [https://www.winpcap.org/docs/docs_40_2/html/group__language.html](https://www.winpcap.org/docs/docs_40_2/html/group__language.html).
-
