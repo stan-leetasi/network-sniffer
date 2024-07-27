@@ -7,116 +7,105 @@ namespace PacketSender;
 
 public abstract class PacketSender
 {
+    private static ILiveDevice? captureDevice;
     public static void Main(string[] args)
     {
-        var inputKey = Console.ReadKey(true);
+        SelectDevice();
         
-        switch (inputKey.KeyChar)
-        {
-            case '0':
-                SendTcpPacket();
-                break;
-            case '1':
-                SendUdpPacket();
-                break;
-            case '2':
-                SendIcmpv4Packet();
-                break;
-            case '3':
-                SendNdpNs();
-                break;
-            case '4':
-                SendRouterSolicitation();
-                break;
-            case '5':
-                SendMld();
-                break;
-            case '6':
-                SendArpRequest();
-                break;
-            case '7':
-                SendIgmpPacket();
-                break;
+        while (true) {
+            var inputKey = Console.ReadKey(true);
+
+            switch (inputKey.KeyChar)
+            {
+                case '0':
+                    SendTcpPacket(); // Transport layer
+                    break;
+                case '1':
+                    SendUdpPacket();
+                    break;
+                case '2':
+                    SendIcmpv4Packet(); // Network layer
+                    break;
+                case '3':
+                    SendIcmpv6Packet(); 
+                    break;
+                case '4':
+                    SendNdpNs();
+                    break;
+                case '5':
+                    SendNdpRS();
+                    break;
+                case '6':
+                    SendMld();
+                    break;
+                case '7':
+                    SendIgmpPacket();
+                    break;
+                case '8':
+                    SendArpRequest(); // Link layer
+                    break;
+                default:
+                    return;
+            }
         }
     }
 
-    public static byte[] createMac(string address)
+    public static byte[] CreateMac(string address)
     {
-        string[] octets = address.Split(':');
-        
-        byte[] macBytes = new byte[6];
-        
-        for (int i = 0; i < 6; i++)
-        {
-            macBytes[i] = Convert.ToByte(octets[i], 16);
-        }
-
-        return macBytes;
+        return address.Split(':').Select(hex => Convert.ToByte(hex, 16)).ToArray();
     }
-
-    // Function to send TCP packet
+    
     public static void SendTcpPacket()
     {
-        var packet = new EthernetPacket(
-            new PhysicalAddress(createMac("10:20:30:40:50:60")),  // Source MAC address
-            new PhysicalAddress(createMac("00:00:00:00:00:00")),  // Destination MAC address
+        var ethernetPacket = new EthernetPacket(
+            new PhysicalAddress(CreateMac("10:20:30:40:50:60")),  // Source
+            new PhysicalAddress(CreateMac("00:00:00:00:00:00")),  // Destination
             EthernetType.IPv4);
 
         var ipPacket = new IPv4Packet(
-                IPAddress.Parse("127.0.0.1"),  // Source IP address
-                IPAddress.Parse("127.0.0.1"))   // Destination IP address
+                IPAddress.Parse("127.0.0.1"),  // Source
+                IPAddress.Parse("127.0.0.1"))   // Destination
             {
                 Protocol = ProtocolType.Tcp
             };
         
-        var sourcePort = (ushort)100;
-        var destinationPort = (ushort)4567;
 
-        var tcpPacket = new TcpPacket(sourcePort, destinationPort);
 
-        ipPacket.PayloadPacket = tcpPacket;
-        packet.PayloadPacket = ipPacket;
+        var tcpPacket = new TcpPacket(100, 4567);
 
-        SendPacket(packet);
+        ConstructPacket(tcpPacket, ipPacket, ethernetPacket);
     }
     
-    // Function to send UDP packet
     public static void SendUdpPacket()
     {
         var ethernetPacket = new EthernetPacket(
-            new PhysicalAddress(createMac("60:50:40:30:20:10")),  // Source MAC address
-            new PhysicalAddress(createMac("00:00:00:00:00:00")),  // Destination MAC address
+            new PhysicalAddress(CreateMac("60:50:40:30:20:10")),  // Source
+            new PhysicalAddress(CreateMac("00:00:00:00:00:00")),  // Destination
             EthernetType.IPv4);
 
         var ipPacket = new IPv4Packet(
-                IPAddress.Parse("127.0.0.1"),  // Source IP address
-                IPAddress.Parse("127.0.0.1"))   // Destination IP address
+                IPAddress.Parse("127.0.0.1"),  // Source
+                IPAddress.Parse("127.0.0.1"))   // Destination
             {
                 Protocol = ProtocolType.Udp
             };
         
-        var sourcePort = (ushort)100;
-        var destinationPort = (ushort)4567;
 
-        var udpPacket = new UdpPacket(sourcePort, destinationPort);
+        var udpPacket = new UdpPacket(100, 4567);
 
-        ipPacket.PayloadPacket = udpPacket;
-        ethernetPacket.PayloadPacket = ipPacket;
-
-        SendPacket(ethernetPacket);
+        ConstructPacket(udpPacket, ipPacket, ethernetPacket);
     }
-
-    // Function to send a Icmpv4 packet
+    
     public static void SendIcmpv4Packet()
     {
         var ethernetPacket = new EthernetPacket(
-            new PhysicalAddress(createMac("60:50:40:30:20:10")),  // Source MAC address
-            new PhysicalAddress(createMac("00:00:00:00:00:00")),  // Destination MAC address
+            new PhysicalAddress(CreateMac("60:50:40:30:20:10")),  // Source
+            new PhysicalAddress(CreateMac("00:00:00:00:00:00")),  // Destination
             EthernetType.IPv4);
 
         var ipPacket = new IPv4Packet(
-                IPAddress.Parse("127.0.0.1"),  // Source IP address
-                IPAddress.Parse("127.0.0.1"))   // Destination IP address
+                IPAddress.Parse("127.0.0.1"),  // Source
+                IPAddress.Parse("127.0.0.1"))   // Destination
             {
                 Protocol = ProtocolType.Icmp
             };
@@ -130,23 +119,45 @@ public abstract class PacketSender
                 0, 1,  // Sequence number
             }));
 
-        ipPacket.PayloadPacket = icmpPacket;
-        ethernetPacket.PayloadPacket = ipPacket;
-
-        SendPacket(ethernetPacket);
+        ConstructPacket(icmpPacket, ipPacket, ethernetPacket);
     }
-
-    // Function to send NDP packet
-    public static void SendNdpNs()
+    
+    public static void SendIcmpv6Packet()
     {
         var ethernetPacket = new EthernetPacket(
-            new PhysicalAddress(createMac("60:50:40:30:20:10")),  // Source MAC address
-            new PhysicalAddress(createMac("00:00:00:00:00:00")),  // Destination MAC address
+            new PhysicalAddress(CreateMac("60:50:40:30:20:10")),  // Source
+            new PhysicalAddress(CreateMac("33:33:00:00:00:01")),  // Multicast address for all-nodes
             EthernetType.IPv6);
 
         var ipPacket = new IPv6Packet(
-                IPAddress.Parse("1.45.1.0"),  // Source IP address
-                IPAddress.Parse("1.45.1.0"))   // Destination IP address
+                IPAddress.Parse("fe80::1"),  // Source
+                IPAddress.Parse("ff02::1"))   // Destination
+            {
+                Protocol = ProtocolType.IcmpV6
+            };
+
+        var icmpPacket = new IcmpV6Packet(
+            new PacketDotNet.Utils.ByteArraySegment(new byte[] {
+                128,  // Type for ICMP echo request
+                0,  // Code 
+                0, 0,  // Checksum
+                0, 0x30, 0x39, 0, 0,   // Identifier 
+                0, 1,  // Sequence number
+            }));
+
+        ConstructPacket(icmpPacket, ipPacket, ethernetPacket);
+    }
+    
+    public static void SendNdpNs()
+    {
+        var ethernetPacket = new EthernetPacket(
+            new PhysicalAddress(CreateMac("60:50:40:30:20:10")),  // Source
+            new PhysicalAddress(CreateMac("00:00:00:00:00:00")),  // Destination
+            EthernetType.IPv6);
+
+        var ipPacket = new IPv6Packet(
+            IPAddress.Parse("fe80::1"),
+            IPAddress.Parse("ff02::1"))
             {
                 NextHeader = ProtocolType.IcmpV6
             };
@@ -158,23 +169,48 @@ public abstract class PacketSender
                 0, 0,  // Checksum 
             }));
 
+        ConstructPacket(icmpv6Packet, ipPacket, ethernetPacket);
+    }
+    
+    public static void SendNdpRS()
+    {
+        var ethernetPacket = new EthernetPacket(
+            new PhysicalAddress(CreateMac("60:50:40:30:20:10")),  // Source
+            new PhysicalAddress(CreateMac("00:00:00:00:00:00")),  // Destination
+            EthernetType.IPv6);
 
-        ipPacket.PayloadPacket = icmpv6Packet;
-        ethernetPacket.PayloadPacket = ipPacket;
+        var ipPacket = new IPv6Packet(
+                IPAddress.Parse("fe80::1"),  // Source
+                IPAddress.Parse("ff02::2"))   // Destination
+            {
+                NextHeader = ProtocolType.IcmpV6
+            };
 
-        SendPacket(ethernetPacket);
+        var macAddressBytes = CreateMac("00:00:00:00:00:00");
+
+        var icmpv6Packet = new IcmpV6Packet(
+            new PacketDotNet.Utils.ByteArraySegment(new byte[] { 
+                (byte)IcmpV6Type.RouterSolicitation, // Type
+                0,  // Code
+                0, 0,  // Checksum 
+                1,  // Option type: Source Link-Layer Address
+                1,  // Option length: 1 address (6 bytes)
+                macAddressBytes[0], macAddressBytes[1], macAddressBytes[2], macAddressBytes[3], macAddressBytes[4], macAddressBytes[5]
+            }));
+
+        ConstructPacket(icmpv6Packet, ipPacket, ethernetPacket);
     }
 
     public static void SendMld()
     {
         var ethernetPacket = new EthernetPacket(
-            new PhysicalAddress(createMac("60:50:40:30:20:10")),  // Source MAC address
-            new PhysicalAddress(createMac("00:00:00:00:00:00")),  // Destination MAC address
+            new PhysicalAddress(CreateMac("60:50:40:30:20:10")),  // Source
+            new PhysicalAddress(CreateMac("00:00:00:00:00:00")),  // Destination
             EthernetType.IPv6);
 
         var ipPacket = new IPv6Packet(
-                IPAddress.Parse("1.45.1.0"),  // Source IP address
-                IPAddress.Parse("1.45.1.0"))   // Destination IP address
+                IPAddress.Parse("1.45.1.0"),  // Source
+                IPAddress.Parse("1.45.1.0"))   // Destination
             {
                 NextHeader = ProtocolType.IcmpV6
             };
@@ -186,112 +222,108 @@ public abstract class PacketSender
                 0, 0,  // Checksum 
             }));
 
-
-        ipPacket.PayloadPacket = icmpv6Packet;
-        ethernetPacket.PayloadPacket = ipPacket;
-
-        SendPacket(ethernetPacket);
+        ConstructPacket(icmpv6Packet, ipPacket, ethernetPacket);
     }
 
-
-    // Function to send Router Solicitation - NDP packet
-    public static void SendRouterSolicitation()
-    {
-        string SrcIpv6 = "::1";
-        
-        var ethernetPacket = new EthernetPacket(
-            new PhysicalAddress(createMac("60:50:40:30:20:10")),  // Source MAC address
-            new PhysicalAddress(createMac("00:00:00:00:00:00")),  // Destination MAC address
-            EthernetType.IPv6);
-
-        var ipPacket = new IPv6Packet(
-                IPAddress.Parse(SrcIpv6),  // Source IP address
-                IPAddress.Parse("ff02::2"))   // Destination IP address
-            {
-                NextHeader = ProtocolType.IcmpV6
-            };
-
-        var macAddressBytes = createMac("00:00:00:00:00:00");
-
-        var icmpv6Packet = new IcmpV6Packet(
-            new PacketDotNet.Utils.ByteArraySegment(new byte[] { 
-                (byte)IcmpV6Type.RouterSolicitation, // Type
-                0,  // Code
-                0, 0,  // Checksum 
-                1,  // Option type: Source Link-Layer Address
-                1,  // Option length: 1 address (6 bytes)
-                macAddressBytes[0], macAddressBytes[1], macAddressBytes[2], macAddressBytes[3], macAddressBytes[4], macAddressBytes[5] // MAC address
-            }));
-
-        ipPacket.PayloadPacket = icmpv6Packet;
-        ethernetPacket.PayloadPacket = ipPacket;
-
-        SendPacket(ethernetPacket);
-    }
-
-    // Function to send ARP request
-    public static void SendArpRequest()
-    {
-        var arpPacket = new PacketDotNet.ArpPacket(
-            ArpOperation.MarsJoin,
-            PhysicalAddress.Parse("00:00:00:00:00:00"), // Sender hardware address
-            IPAddress.Parse("127.0.0.1"),  // Sender protocol address
-            PhysicalAddress.Parse("00:00:00:00:00:00"), // Target hardware address
-            IPAddress.Parse("127.0.0.1"));  // Target protocol address
-
-        SendPacket(arpPacket);
-    }
-    
-    // Function to send IGMP packet
     public static void SendIgmpPacket()
     {
         var ethernetPacket = new EthernetPacket(
-            new PhysicalAddress(createMac("60:50:40:30:20:10")),  // Source MAC address
-            new PhysicalAddress(createMac("00:00:00:00:00:00")),  // Destination MAC address
+            new PhysicalAddress(CreateMac("60:50:40:30:20:10")),  // Source
+            new PhysicalAddress(CreateMac("00:00:00:00:00:00")),  // Destination
             EthernetType.IPv4);
 
         var ipPacket = new IPv4Packet(
-                IPAddress.Parse("127.0.0.1"),  // Source IP address
-                IPAddress.Parse("224.0.0.1"))   // Destination IP address
-            {
-                Protocol = ProtocolType.Igmp
-            };
-
-        byte[] igmpData = new byte[8];  // IGMPv2 Membership Report packeta
-        
-        igmpData[0] = (byte)IgmpMessageType.MembershipReportIGMPv2;
-        
-        for (int i = 1; i < igmpData.Length; i++)
+                IPAddress.Parse("127.0.0.1"),  // Source
+                IPAddress.Parse("224.0.0.1"))   // Destination
         {
-            igmpData[i] = 0;
-        }
+            Protocol = ProtocolType.Igmp
+        };
+
+        var igmpPacket = new IgmpV2Packet(
+            new PacketDotNet.Utils.ByteArraySegment(new byte[]
+            {
+                (byte)IgmpMessageType.MembershipReportIGMPv2,
+                0,
+                0, 0,
+                0, 0, 0, 0
+            }));
+
+        ConstructPacket(igmpPacket, ipPacket, ethernetPacket);
+    }
+
+    public static void SendArpRequest()
+    {
+        var arpPacket = new PacketDotNet.ArpPacket(
+            ArpOperation.Request,
+            PhysicalAddress.Parse("ff:ff:ff:ff:ff:ff"), // Target hardware address
+            IPAddress.Parse("127.0.0.1"),  // Sender protocol address
+            PhysicalAddress.Parse("00:00:00:00:00:00"), // Sender hardware address
+            IPAddress.Parse("127.0.0.1"));  // Target protocol address
         
-        var igmpPacket = new IgmpV2Packet(new PacketDotNet.Utils.ByteArraySegment(igmpData));
+        var ethernetPacket = new PacketDotNet.EthernetPacket(
+            PhysicalAddress.Parse("00:00:00:00:00:00"), // Sender hardware address
+            PhysicalAddress.Parse("ff:ff:ff:ff:ff:ff"), // Destination MAC address (broadcast for ARP request)
+            EthernetType.Arp)
+        {
+            PayloadPacket = arpPacket
+        };
+        
+        ethernetPacket.UpdateCalculatedValues();
+        SendPacket(ethernetPacket);
+    }
+    
+    
 
-        ipPacket.PayloadPacket = igmpPacket;
+    private static void ConstructPacket(Packet packet, Packet ipPacket, Packet ethernetPacket)
+    {
+        packet.UpdateCalculatedValues();
+        ipPacket.PayloadPacket = packet;
+        ipPacket.UpdateCalculatedValues();
         ethernetPacket.PayloadPacket = ipPacket;
-
+        
         SendPacket(ethernetPacket);
     }
 
-
-    // Function to send a packet
-    private static void SendPacket(Packet packet)
+    private static void SelectDevice()
     {
         var devices = CaptureDeviceList.Instance;
         if (devices.Count < 1)
         {
             Console.WriteLine("No device found on this machine.");
-            return;
+            Environment.Exit(0);
+        }
+        
+        Console.WriteLine("Select a device:");
+        for (int i = 0; i < devices.Count; i++)
+        {
+            Console.WriteLine($"{i}: {devices[i].Name}: {devices[i].Description}");
         }
 
-        var device = devices[0];
-
-        device.Open();
-
-        device.SendPacket(packet);
-
-        device.Close();
+        string? input = Console.ReadLine();
+        if (int.TryParse(input, out int deviceNum) && deviceNum >= 0 && deviceNum < devices.Count)
+            captureDevice = devices[deviceNum];
+        else
+        {
+            Console.Error.WriteLine("ERR: Invalid value");
+            Environment.Exit(1);
+        }
+    }
+    
+    private static void SendPacket(Packet packet)
+    {
+        try
+        {
+            captureDevice.Open();
+            captureDevice.SendPacket(packet);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ERR: Failed to send packet: {ex.Message}");
+        }
+        finally
+        {
+            captureDevice?.Close();
+        }
     }
     
 }

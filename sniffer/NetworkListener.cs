@@ -46,13 +46,18 @@ public class NetworkListener {
                 Console.Error.WriteLine("ERR: No interfaces found!");
                 return 1;
             }
-            
-            _listener = devices.FirstOrDefault(d => d.Name == argParserInstance.Interface);
-            if (_listener == null)
+
+            if (argParserInstance.Interface == null)
             {
-                Console.Error.WriteLine("ERR: Invalid device name");
-                return 1;
+                _listener = devices.FirstOrDefault(d => d.Name == argParserInstance.InterfaceName);
+                if (_listener == null)
+                {
+                    Console.Error.WriteLine("ERR: Invalid device name");
+                    return 1;
+                }
             }
+            else
+                _listener = argParserInstance.Interface;
             
             // Register handler function to the 'packet arrival' event
             _listener.OnPacketArrival += OnPacketArrival;
@@ -92,52 +97,41 @@ public class NetworkListener {
         private static void OnPacketArrival(object sender, PacketCapture e)
         {
             if (!Running) return;
-            
-            var packet = Packet.ParsePacket(e.GetPacket().LinkLayerType, e.GetPacket().Data);
-            var packetEth = Packet.ParsePacket(LinkLayers.Ethernet, e.GetPacket().Data);
-            var time = e.GetPacket().Timeval.Date;
-            var len = e.GetPacket().Data.Length;
 
-            var ethPacket = packetEth.Extract<EthernetPacket>();
-            var ipPacket = packet.Extract<IPPacket>();
-            var arpPacket = packet.Extract<ArpPacket>();
+            var rawCapture = e.GetPacket();
+            var time = rawCapture.Timeval.Date;
+            var len = rawCapture.Data.Length;
 
-            var icmp4Packet = packet.Extract<IcmpV4Packet>();
-            var icmp6Packet = packet.Extract<IcmpV6Packet>();
+            var ethPacket = Packet.ParsePacket(LinkLayers.Ethernet, rawCapture.Data).Extract<EthernetPacket>();
+            var ipPacket = Packet.ParsePacket(rawCapture.LinkLayerType, rawCapture.Data).Extract<IPPacket>();
             
             System.Net.IPAddress? srcIp = null;
             System.Net.IPAddress? dstIp = null;
             PhysicalAddress? srcMac = null;
             PhysicalAddress? dstMac = null;
+            
+            ArpPacket? arpPacket = null;
             ArpOperation? arpOperation = null;
 
-            string? srcMacStr = "";
-            string? dstMacStr = "";
-            
-            var icmp4Type = icmp4Packet?.TypeCode;
-            
-            if (arpPacket != null) // Extract arp packet data
+            if (ethPacket.PayloadPacket is ArpPacket) // Extract arp packet data
             {
-                srcIp = arpPacket.SenderProtocolAddress;
-                dstIp = arpPacket.TargetProtocolAddress;
-                srcMac = arpPacket.SenderHardwareAddress;
-                dstMac = arpPacket.TargetHardwareAddress;
-                arpOperation = arpPacket.Operation;
-
-                srcMacStr = FormatMac(srcMac);
-                dstMacStr = FormatMac(dstMac);
+                arpPacket = (ArpPacket?)ethPacket.PayloadPacket; 
+                srcIp = arpPacket?.SenderProtocolAddress;
+                dstIp = arpPacket?.TargetProtocolAddress;
+                srcMac = arpPacket?.SenderHardwareAddress;
+                dstMac = arpPacket?.TargetHardwareAddress;
+                arpOperation = arpPacket?.Operation;
             }
-            else // Extract data for packet type other than arp
+            else
             {
                 srcIp = ipPacket?.SourceAddress;
                 dstIp = ipPacket?.DestinationAddress;
                 srcMac = ethPacket?.SourceHardwareAddress;
                 dstMac = ethPacket?.DestinationHardwareAddress;
-                
-                srcMacStr = FormatMac(srcMac);
-                dstMacStr = FormatMac(dstMac);
             }
-            
+            var srcMacStr = FormatMac(srcMac);
+            var dstMacStr = FormatMac(dstMac);
+
             // Extract ports if the packet is udp or tcp
             var srcPort = ipPacket?.PayloadPacket?.GetType().Name switch
             {
@@ -152,15 +146,15 @@ public class NetworkListener {
                 _ => null
             };
 
-            string packetType = GetPacketType(ipPacket, icmp6Packet);
-
             // Print the packet information
             Console.WriteLine($"timestamp: {time}");
             if (srcMac != null)
                 Console.WriteLine($"src MAC: {srcMacStr}");
             if(dstMac != null)
                 Console.WriteLine($"dst MAC: {dstMacStr}");
+
             Console.WriteLine($"frame length: {len} bytes");
+
             if(srcIp != null)
                 Console.WriteLine($"src IP: {srcIp}");
             if(dstIp != null)
@@ -169,54 +163,50 @@ public class NetworkListener {
                 Console.WriteLine($"src port: {srcPort}");
             if(dstPort != null)
                 Console.WriteLine($"dst port: {dstPort}");
-            if(ipPacket?.Protocol != null)
-                Console.WriteLine($"type: {packetType}");
+            
+            if (arpPacket != null)
+                Console.WriteLine("type: ARP");
             if(arpOperation != null)
                 Console.WriteLine($"arp operation: {arpOperation}");
-            if(icmp4Type != null)
-                Console.WriteLine($"ICMPv4 type: {icmp4Type}");
             
-            Console.WriteLine();
-            
-            // Print the packet data
-            PrintData(e.GetPacket().Data, e.GetPacket().PacketLength); 
-            
-            if (_displayedPackets == _packetLimit-1)
+            if (ethPacket?.PayloadPacket is IPv4Packet ipv4Packet)
             {
-                Running = false;
+                Console.WriteLine("Network Protocol: IPv4");
+                Console.WriteLine($"type: {ipv4Packet.Protocol}");
             }
 
-            _displayedPackets++;
-        }
-
-        /// <summary>
-        /// Extracts the type of the received packet.
-        /// <returns>String representing the packet type.</returns>
-        /// </summary>
-        private static string GetPacketType(IPPacket? ipPacket, IcmpV6Packet? icmp6Packet)
-        {
-            if (icmp6Packet == null && ipPacket != null)
-                return ($"{ipPacket?.Protocol}");
-            if (icmp6Packet != null)
+            if (ethPacket?.PayloadPacket is IPv6Packet ipv6Packet)
             {
-                switch (icmp6Packet.Type)
+                Console.WriteLine("Network Protocol: IPv6");
+                Console.WriteLine($"type: {ipv6Packet.Protocol}");
+                if (ipv6Packet.PayloadPacket is IcmpV6Packet icmpV6Packet)
                 {
-                    case IcmpV6Type.RouterAdvertisement:
-                    case IcmpV6Type.RouterSolicitation:
-                    case IcmpV6Type.NeighborAdvertisement:
-                    case IcmpV6Type.NeighborSolicitation:
-                        return"NDP";
+                    switch (icmpV6Packet.Type)
+                    {
+                        case IcmpV6Type.RouterAdvertisement:
+                        case IcmpV6Type.RouterSolicitation:
+                        case IcmpV6Type.NeighborAdvertisement:
+                        case IcmpV6Type.NeighborSolicitation:
+                            Console.WriteLine("subtype: NDP");
+                            break;
                     
-                    case IcmpV6Type.MulticastListenerQuery:
-                    case IcmpV6Type.MulticastListenerReport:
-                    case IcmpV6Type.MulticastListenerDone:
-                        return "MLD";
-                    default:
-                        return "ICMPv6";
+                        case IcmpV6Type.MulticastListenerQuery:
+                        case IcmpV6Type.MulticastListenerReport:
+                        case IcmpV6Type.MulticastListenerDone:
+                            Console.WriteLine("subtype: MLD");
+                            break;
+                    }
                 }
             }
-
-            return "";
+            
+            Console.WriteLine(); // Empty line for output formatting
+            
+            PrintData(rawCapture.Data, rawCapture.PacketLength); 
+            
+            if (_displayedPackets == _packetLimit-1)
+                Running = false;
+            
+            _displayedPackets++;
         }
         
         /// <summary>

@@ -28,7 +28,7 @@ public static class Sniffer {
     /// <returns>Integer representing the program's exit code.</returns>
     public static int Main(string[] cliArgs)
     {
-        // End the application when Ctrl+C is pressed
+        // Exit application when Ctrl+C is pressed
         var exitEvent = new ManualResetEvent(false);
         Console.CancelKeyPress += (_, eventArgs) =>
         {
@@ -48,26 +48,32 @@ public static class Sniffer {
         
         // Retrieve the interfaces list
         var devices = CaptureDeviceList.Instance;
-        
-        if (ArgParserInstance.ShowInterfaces) // Print available interfaces
+
+        if (ArgParserInstance.ShowInterfaces)
         {
             if (devices.Count < 1)
             {
-                Console.Error.WriteLine("ERR: No interfaces found!");
+                Console.Error.WriteLine("ERR: No interfaces found");
                 return 1;
             }
 
-            Console.WriteLine("Available Interfaces:");
+            Console.WriteLine("Available interfaces:");
             Console.WriteLine("----------------------------------------");
 
-            // Print out the available interfaces
             for (int i = 0; i < devices.Count; i++)
-            {
-                ICaptureDevice dev = devices[i];
-                Console.WriteLine($"{dev.Name} - {dev.Description}");
-            }
+                Console.WriteLine($"{i}: {devices[i].Name} - {devices[i].Description}");
 
-            return 0;
+            if (ArgParserInstance.InterfaceName is "blank")
+                return 0;
+
+            string? input = Console.ReadLine();
+            if (int.TryParse(input, out int deviceNum) && deviceNum >= 0 && deviceNum < devices.Count)
+                ArgParserInstance.Interface = devices[deviceNum];
+            else
+            {
+                Console.Error.WriteLine("ERR: Invalid input");
+                return 1;
+            }
         }
 
         if (_listener.StartListener(devices, ArgParserInstance) != 0) // Start the listener

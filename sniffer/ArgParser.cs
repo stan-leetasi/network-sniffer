@@ -1,5 +1,6 @@
 namespace zeta;
 
+using SharpPcap;
 using System;
 using System.Linq;
 
@@ -9,10 +10,15 @@ using System.Linq;
 public class ArgParser
 {
     /// <summary>
-    /// Interface to sniff from
+    /// Capture interface name
     /// </summary>
-    public string Interface { get; set; } = "";
-    
+    public string InterfaceName { get; set; } = "";
+
+    /// <summary>
+    /// Capture interface
+    /// </summary>
+    public ILiveDevice? Interface { get; set; } = null;
+
     /// <summary>
     /// TCP protocol
     /// </summary>
@@ -71,7 +77,7 @@ public class ArgParser
     /// <summary>
     /// Number of packets to display
     /// </summary>
-    public int PacketCountDisplay { get; set; } = 1;
+    public int PacketCountDisplay { get; set; } = -1;
     
     /// <summary>
     /// Help message
@@ -81,7 +87,7 @@ public class ArgParser
     /// <summary>
     /// Indicates to print the available interfaces
     /// </summary>
-    public bool ShowInterfaces = false;
+    public bool ShowInterfaces = true;
     
     /// <summary>
     /// List of parameters
@@ -102,13 +108,15 @@ public class ArgParser
         {
             switch (args[i])
             {
-                case "-i" or "--interface":
-                    if (i+1 == args.Length || _parameters.Contains(args[i+1]))
+                case "-i":
+                    if (i+1 == args.Length || _parameters.Contains(args[i + 1]))
                     {
-                        ShowInterfaces = true;
+                        InterfaceName = "blank";
                         return 0;
                     }
-                    Interface = args[++i];
+                        
+                    InterfaceName = args[++i];
+                    ShowInterfaces = false;
                     break;
                 case "-p":
                     if (i+1 == args.Length || _parameters.Contains(args[i+1]))
@@ -165,6 +173,11 @@ public class ArgParser
                         return 1;
                     }
                     PacketCountDisplay = int.Parse(args[++i]);
+                    if (PacketCountDisplay <= 0)
+                    {
+                        Console.Error.WriteLine("ERR: Invalid number of packets to be displayed");
+                        return 1;
+                    }
                     break;
                 case "-h":
                     ShowHelp = true;
@@ -175,7 +188,7 @@ public class ArgParser
             }
         }
 
-        if (args.Length == 0 || Interface == "")
+        if (args.Length == 0 || InterfaceName == "")
             ShowInterfaces = true;
 
         // Print help message if requested
@@ -192,15 +205,13 @@ public class ArgParser
     {
         Console.WriteLine("Usage: ipk-sniffer [-i interface | --interface interface] {-p|--port-source|--port-destination port [--tcp|-t] [--udp|-u]} [--arp] [--ndp] [--icmp4] [--icmp6] [--igmp] [--mld] {-n num}\n");
         Console.WriteLine("Options:");
-        Console.WriteLine("  -i, --interface    Specifies the network interface to sniff packets from. If not specified, a list of active interfaces is printed.");
+        Console.WriteLine("  -i                 Specifies the network interface to capture packets from. If not specified, a list of active interfaces is printed.");
         Console.WriteLine("  -t, --tcp          Display TCP segments.");
         Console.WriteLine("  -u, --udp          Display UDP datagrams.");
         Console.WriteLine("  -p                 Filter TCP/UDP based on port number.");
         Console.WriteLine("                     Can occur in source OR destination part of TCP/UDP headers.");
-        Console.WriteLine("  --port-destination port");
-        Console.WriteLine("                     Filter TCP/UDP based on destination port number.");
-        Console.WriteLine("  --port-source port");
-        Console.WriteLine("                     Filter TCP/UDP based on source port number.");
+        Console.WriteLine("  --port-destination Filter TCP/UDP based on destination port number.");
+        Console.WriteLine("  --port-source      Filter TCP/UDP based on source port number.");
         Console.WriteLine("  --icmp4            Display only ICMPv4 packets.");
         Console.WriteLine("  --icmp6            Display only ICMPv6 echo request/response.");
         Console.WriteLine("  --arp              Display only ARP frames.");
@@ -208,7 +219,7 @@ public class ArgParser
         Console.WriteLine("  --igmp             Display only IGMP packets.");
         Console.WriteLine("  --mld              Display only MLD packets (subset of ICMPv6).");
         Console.WriteLine("  -n                 Specifies the number of packets to display.");
-        Console.WriteLine("                     If not specified, displays only one packet.\n");
+        Console.WriteLine("                     If not specified, run indefinitely.\n");
         Console.WriteLine("Arguments can be in any order.");
     }
 }
