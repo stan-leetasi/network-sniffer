@@ -1,48 +1,61 @@
-# IPK Project #2 - ZETA: Network sniffer
+# IPK Project #2 - Network sniffer
 
-This documentation describes the implementation of the [IPK project #2](hhttps://git.fit.vutbr.cz/NESFIT/IPK-Projects-2024/src/branch/master/Project%202/zeta). This project was implemented in C# and is designed for a Linux enviroment, but also functions on a Windows environment.
-## Program Structure
+A cross-platform command line network sniffer with functionality modeled after Wireshark.
 
-The program consists of these files:
+## Program structure
 
+##### sniffer
 - `Program.cs` - Sniffer class - starting point of the client
 - `ArgParser.cs` - ArgParser class - parser for CLI arguments
-- `NetworkListener.cs` - NetworkListener class - prints received packets
+- `NetworkListener.cs` - NetworkListener class - processes and prints received packets
 
-The program structure is further depicted in the [class diagram](#class-diagram)
-
+##### PacketSender
+- `Program.cs` - PacketSender class - sends example packets
 
 ## Implementation details
 
-The sniffer's entry point is the `Main` function in `Program.cs`. An instance of ArgParser handles the CLI arguments and saves the parsed values into its class fields. If the parsing was successful, the `StartListener` function is called.
+### Sniffer
+The sniffer component is implemented to capture and display network packets. It's main functionality is handled by the `NetworkListener` class, which sets up the capture device, configures filters, and handles the packet arrival event to print the captured packets. The `ArgParser` class is responsible for parsing command-line arguments, such as the network interface to listen on and any filters to apply.
 
-NetworkListener first constructs a filter based on the CLI arguments. The filter is then passed to an instance of `ICaptureDevice` (imported from the `SharpPcap` library), which is then opened and it starts listening for incoming packets. The main function stays in a while loop until the displayed packets limit is reached, or the user terminates the application with Ctrl+C.
+### PacketSender
+The PacketSender component is a simple utility whose purpose is to test the sniffer's functionality by sending various types of packets. The type of packet to send is selected through a menu interface, making it easy to test different scenarios.
 
-The `OnPacketReceived` function is responsible for handling received packets. It is subscribed to the `OnPacketArrival` event, which causes it to be called every time a packet is captured. The received packets are parsed with `PacketDotNet`'s `Packet.ParsePacket` function and then further processed to extract all relevant data. If the packet is of type 'IcmpV6', it's exact type (MLD or NDP) is further determined by the helper function `GetPacketType`, which inspects the `IcmpV6Packet`'s `Type`. In case of any other packet, it's type is simply determined by the `IPPacket`'s class's function `Protocol`.
+**Both components utilize the following libraries**
+- **SharpPcap**: A packet capture framework for .NET, providing an API for capturing packets.
+- **PacketDotNet**: A .NET library that works with SharpPcap to decode packets and present them in an easy-to-use format.
 
-For each packet, only non-null attributes are printed to console, and the data content is formatted into a block by the `PrintData` function.
+## Installation and usage
+The installation process is the same for Linux and Windows, .NET 8 SDK or later is required. Must be built with elevated privileges.
+  
+1. Clone the repository: `git clone https://github.com/stan-leetasi/network-sniffer.git`
+2. Build the projects: `dotnet build`
+3. Executables will be located in: `sniffer/bin/Debug/net8.0` and `PacketSender/bin/Debug/net8.0`
 
+### Sniffer usage
+Must be executed with elevated privileges to assure proper capture device access. The program can be terminated at any given moment with the Ctrl + C sequence.
 
-## Build Instructions
+```
+./sniffer [-i interface] {-p|--port-source|--port-destination port [--tcp|-t] [--udp|-u]} [--arp] [--ndp] [--icmp4] [--icmp6] [--igmp] [--mld] {-n num}
+```
+All arguments can be in any order. If no protocol is specified, all traffic will be printed.
 
-Building of the ipk-sniffer is done with the `make` command, since a `Makefile` was required for this project. Running the `make` command simply calls the `dotnet build` command and moves the ipk-sniffer executable and other files required for program execution to the root folder.
+* `-i eth0` capture interface. If this parameter is not used, an interface can also be selected at program startup by inputting the interface's number.
+* `-n 10` number of packets to display. If this parameter is not used, the sniffer will run indefinitely.
+* `-t` or `--tcp` TCP segments
+* `-u` or `--udp` UDP datagrams
+* `-p` filters TCP/UDP based on port number. The given port can occur in source OR destination part of TCP/UDP headers.
+* `--port-destination 23` only destination port (higher priority than `-p`)
+* `--port-source 23` only source port (higher priority than `-p`)
+* `--icmp4`
+* `--icmp6`
+* `--arp`
+* `--ndp`
+* `--igmp`
+* `--mld`
 
+### PacketSender usage
+Must be executed with elevated privileges to assure proper capture device access.
 
-### Testing
+`./PacketSender`
 
-For testing purposes, i created a simple program `PacketSender`, which also utilizes the SharpPcap and PacketDotNet libraries to create and send packets of all types required by the project assignment. The packet type to send is chosen by user input (keys 0-7). Then the received packet can be inspected in ipk-sniffer.
-
-#### Testing scenarios
-- read a TCP packet
-- read a UDP packet
-- read a Icmpv4 packet
-- read a Ndp(NeighbourSolicitation) packet (subset of Icmpv6)
-- read a Ndp(RouterSolicitation) packet (subset of Icmpv6)
-- read a Mld packet (subset of Icmpv6)
-- read an Arp packet
-- read an Igmp packet
-
-
-#### Class diagram {#class-diagram}
-All the boolean fields representing sniffer filter options in the ArgParser class are included under the `filterOptions`
-![class-diagram](doc/ClassDiagram.jpg)
+The interface can be selected at startup from the numbered active interface list. Then by pressing the keys `0-8`, different types of packets will be sent using the selected interface.
