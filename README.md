@@ -53,9 +53,13 @@ All arguments can be in any order. If no protocol is specified, all traffic will
 * `--igmp`
 * `--mld`
 
+![Sniffer example](doc/Sniffer.png)
+
 ### PacketSender usage
 Must be executed with elevated privileges to assure proper capture device access.
 
 `./PacketSender`
 
-The interface can be selected at startup from the numbered active interface list. Then by pressing the keys `0-8`, different types of packets will be sent using the selected interface.
+The interface can be selected at startup from the numbered active interface list. Then by pressing the keys `0-8`, different types of packets will be sent using the selected interface. Pressing any other key will terminate the program.
+
+![PacketSender example](doc/PacketSender.png)
