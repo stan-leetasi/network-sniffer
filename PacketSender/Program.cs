@@ -11,6 +11,7 @@ public abstract class PacketSender
     public static void Main(string[] args)
     {
         SelectDevice();
+        PrintInfo();
         
         while (true) {
             var inputKey = Console.ReadKey(true);
@@ -326,4 +327,16 @@ public abstract class PacketSender
         }
     }
     
+    private static void PrintInfo(){
+        Console.WriteLine("Press the corresponding key to send a packet of type:");
+        Console.WriteLine("0: TCP");
+        Console.WriteLine("1: UDP");
+        Console.WriteLine("IcmpV4");
+        Console.WriteLine("IcmpV6");
+        Console.WriteLine("NDP neighbour solicitation");
+        Console.WriteLine("NDP router solicitation");
+        Console.WriteLine("MLD");
+        Console.WriteLine("Igmp");
+        Console.WriteLine("Arp");
+    }
 }
